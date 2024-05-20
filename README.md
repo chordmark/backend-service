@@ -1,2 +1,3 @@
 # backend-service
-Backend service to support client and app
+
+Backend express service to support client and app written in typescript
