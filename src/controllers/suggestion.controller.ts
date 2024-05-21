@@ -1,82 +1,67 @@
 import { Request, Response } from 'express';
 import WebSocket from 'ws';
+import { Deferred } from '../class';
 
 const ws = new WebSocket('ws://localhost:4001');
-
-class Deferred {
-  search: any;
-  suggestions: any;
-  promise: any;
-  resolve: any;
-  reject: any;
-
-  constructor(search: any) {
-    this.search = search;
-    this.promise = new Promise((resolve, reject) => {
-      this.reject = reject;
-      this.resolve = resolve;
-    });
-  }
-}
 
 const suggestions: Deferred[] = [];
 
 ws.on('open', () => {
-  console.log('Connected to server');
+  console.log('Connected to suggestion server');
 });
 
 ws.on('message', (message: string) => {
-  const result = JSON.parse(message);
+  const json = JSON.parse(message);
   const find = suggestions.find((s) => {
-    return result.search === s.search;
+    return json.suggest === s.key;
   });
   if (find) {
-    find.suggestions = result.suggestions;
-    find.resolve(find.suggestions);
+    find.results = json.results;
+    find.resolve(find.results);
   } else {
-    const deferred = new Deferred(result.search);
-    deferred.suggestions = result.suggestions;
+    const deferred = new Deferred(json.suggest);
+    deferred.results = json.results;
     suggestions.push(deferred);
   }
 });
 
 ws.on('close', () => {
-  console.log('Disconnected from server');
+  console.log('Disconnected from suggestion server');
 });
 
 export async function suggestion(
   req: Request,
   res: Response
 ): Promise<Response> {
-  let lookup = req.params.search;
+  let lookup = req.params.suggest;
   if (lookup.length > 5) {
     lookup = lookup.substring(0, 5);
   }
   if (lookup.length > 0) {
     const find = suggestions.find((s) => {
-      return lookup === s.search;
+      return lookup === s.key;
     });
     if (find) {
-      console.log('found:', lookup);
+      console.log('suggest found:', lookup);
       return res.json({
-        search: req.params.search,
-        suggestions: find.suggestions.filter((f: string) => {
-          return f.startsWith(req.params.search);
+        suggest: req.params.suggest,
+        results: find.results.filter((f: string) => {
+          return f.startsWith(req.params.suggest);
         }),
       });
     } else {
-      console.log('lookup:', lookup);
-      ws.send(JSON.stringify({ search: lookup }));
+      console.log('suggest lookup:', lookup);
+      ws.send(JSON.stringify({ suggest: lookup }));
       const deferred = new Deferred(lookup);
       suggestions.push(deferred);
       return await deferred.promise.then((r: any) => {
         const filtered = r.filter((f: string) => {
-          return f.startsWith(req.params.search);
+          return f.startsWith(req.params.suggest);
         });
-        res.json({ search: req.params.search, suggestions: filtered });
+        res.json({ suggest: req.params.suggest, results: filtered });
       });
     }
   } else {
-    return res.json({ search: '', suggestions: [] });
+    return res.json({ suggest: '', results: [] });
   }
 }

@@ -9,7 +9,7 @@ class SuggestionRoutes {
   }
 
   intializeRoutes() {
-    this.router.get('/:search', suggestion);
+    this.router.get('/:suggest', suggestion);
   }
 }
 
