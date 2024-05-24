@@ -9,7 +9,7 @@ class SearchRoutes {
   }
 
   intializeRoutes() {
-    this.router.get('/:search', search);
+    this.router.post('/', search);
   }
 }
 

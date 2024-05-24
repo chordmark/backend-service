@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { suggestion } from '../controllers/suggestion.controller';
+import { suggest } from '../controllers/suggest.controller';
 
 class SuggestionRoutes {
   router = Router();
@@ -9,7 +9,7 @@ class SuggestionRoutes {
   }
 
   intializeRoutes() {
-    this.router.get('/:suggest', suggestion);
+    this.router.post('/', suggest);
   }
 }
 

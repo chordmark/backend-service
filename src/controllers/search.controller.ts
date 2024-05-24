@@ -4,7 +4,7 @@ import { Deferred } from '../class';
 
 const ws = new WebSocket('ws://localhost:4001');
 
-const searches: Deferred[] = [];
+const searchResults: Deferred[] = [];
 
 ws.on('open', () => {
   console.log('Connected to search server');
@@ -12,7 +12,7 @@ ws.on('open', () => {
 
 ws.on('message', (message: string) => {
   const json = JSON.parse(message);
-  const find = searches.find((s) => {
+  const find = searchResults.find((s) => {
     return json.search === s.key;
   });
   if (find) {
@@ -21,7 +21,7 @@ ws.on('message', (message: string) => {
   } else {
     const deferred = new Deferred(json.search);
     deferred.results = json.results;
-    searches.push(deferred);
+    searchResults.push(deferred);
   }
 });
 
@@ -30,23 +30,23 @@ ws.on('close', () => {
 });
 
 export async function search(req: Request, res: Response): Promise<Response> {
-  if (req.params.search.length > 0) {
-    const find = searches.find((s) => {
-      return req.params.search === s.key;
+  if (req.body.search.length > 0) {
+    const find = searchResults.find((s) => {
+      return req.body.search === s.key;
     });
     if (find) {
-      console.log('search found:', req.params.search);
+      console.log('search found:', req.body.search);
       return res.json({
-        search: req.params.search,
+        search: req.body.search,
         results: find.results,
       });
     } else {
-      console.log('search lookup:', req.params.search);
-      const deferred = new Deferred(req.params.search);
-      searches.push(deferred);
-      ws.send(JSON.stringify({ search: req.params.search }));
+      console.log('search lookup:', req.body.search);
+      const deferred = new Deferred(req.body.search);
+      searchResults.push(deferred);
+      ws.send(JSON.stringify({ search: req.body.search }));
       return await deferred.promise.then((r: any) => {
-        res.json({ search: req.params.search, results: r });
+        res.json({ search: req.body.search, results: r });
       });
     }
   } else {
