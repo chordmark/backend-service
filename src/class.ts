@@ -1,6 +1,5 @@
 export class Deferred {
   key: any;
-  results: any;
   promise: any;
   resolve: any;
   reject: any;

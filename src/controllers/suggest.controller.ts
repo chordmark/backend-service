@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import WebSocket from 'ws';
+import { Suggest } from '../models';
 import { Deferred } from '../class';
 
 const ws = new WebSocket('ws://localhost:4001');
@@ -12,17 +13,15 @@ ws.on('open', () => {
 
 ws.on('message', (message: string) => {
   const json = JSON.parse(message);
-  const find = suggestResults.find((s) => {
+  const index = suggestResults.findIndex((s) => {
     return json.suggest === s.key;
   });
-  if (find) {
-    find.results = json.results;
-    find.resolve(find.results);
-  } else {
-    const deferred = new Deferred(json.suggest);
-    deferred.results = json.results;
-    suggestResults.push(deferred);
+  if (index > -1) {
+    const find = suggestResults[index];
+    find.resolve(json.results);
+    suggestResults.splice(index, 1);
   }
+  new Suggest({ suggest: json.suggest, results: json.results }).save();
 });
 
 ws.on('close', () => {
@@ -35,15 +34,9 @@ export async function suggest(req: Request, res: Response): Promise<Response> {
     lookup = lookup.substring(0, 5);
   }
   if (lookup.length > 0) {
-    const find = suggestResults.find((s) => {
-      return lookup === s.key;
-    });
+    const find = await Suggest.findOne({ suggest: lookup }).exec();
     if (find) {
-      console.log(
-        'suggest found:',
-        `:${req.body.suggest}:`,
-        find.results.length
-      );
+      console.log('suggest found:', lookup);
       return res.json({
         suggest: req.body.suggest,
         results: find.results.filter((f: string) => {
@@ -51,7 +44,7 @@ export async function suggest(req: Request, res: Response): Promise<Response> {
         }),
       });
     } else {
-      console.log('suggest lookup:', `:${lookup}:`);
+      console.log('suggest lookup:', lookup);
       ws.send(JSON.stringify({ suggest: lookup }));
       const deferred = new Deferred(lookup);
       suggestResults.push(deferred);

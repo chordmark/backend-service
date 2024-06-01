@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
@@ -12,6 +13,8 @@ app.use(express.json());
 new Routes(app);
 const port = process.env.PORT || 3001;
 
-app.listen(port, () => {
-  console.log(`[server]: Server is running at http://localhost:${port}`);
+mongoose.connect('mongodb://localhost:27017/chordmark').then(() => {
+  app.listen(port, () => {
+    console.log(`[server]: Server is running at http://localhost:${port}`);
+  });
 });

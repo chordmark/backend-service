@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import WebSocket from 'ws';
 import { Deferred } from '../class';
+import { Href, Music } from '../models';
 
 const ws = new WebSocket('ws://localhost:4001');
 
@@ -12,17 +13,17 @@ ws.on('open', () => {
 
 ws.on('message', (message: string) => {
   const json = JSON.parse(message);
-  const find = musicResults.find((s) => {
+  const index = musicResults.findIndex((s) => {
     return json.music === s.key;
   });
-  if (find) {
-    find.results = json.results;
-    find.resolve(find.results);
-  } else {
-    const deferred = new Deferred(json.music);
-    deferred.results = json.results;
-    musicResults.push(deferred);
-  }
+  if (index > -1) {
+    const find = musicResults[index];
+    find.resolve(json.result);
+    musicResults.splice(index, 1);
+  } 
+  Href.findOne({ href: json.music }).then( (href: any) => {
+    new Music({ shortId: href.shortId, song: json.result }).save();
+  })
 });
 
 ws.on('close', () => {
@@ -32,25 +33,25 @@ ws.on('close', () => {
 export async function music(req: Request, res: Response): Promise<Response> {
   console.log(req.body);
   if (req.body.music.length > 0) {
-    const find = musicResults.find((s) => {
-      return req.body.music === s.key;
-    });
+    const find = await Music.findOne({ shortId: req.body.music }).exec();
     if (find) {
       console.log('music found:', req.body.music);
       return res.json({
         music: req.body.music,
-        result: find.results[0],
+        result: find.song
       });
     } else {
-      console.log('music lookup:', req.body.music);
-      const deferred = new Deferred(req.body.music);
-      musicResults.push(deferred);
-      ws.send(JSON.stringify({ music: req.body.music }));
-      return await deferred.promise.then((r: any) => {
-        res.json({ music: req.body.music, result: r[0] });
-      });
+      const href = await Href.findOne({ shortId: req.body.music }).exec();
+      if ( href ) {
+        console.log('music lookup:', href.href);
+        const deferred = new Deferred(href.href);
+        musicResults.push(deferred);
+        ws.send(JSON.stringify({ music: href.href }));
+        return await deferred.promise.then((r: any) => {
+          res.json({ music: req.body.music, result: r });
+        });  
+      }
     }
-  } else {
-    return res.json({ music: '', result: '' });
   }
+  return res.json({ music: '', result: '' });
 }

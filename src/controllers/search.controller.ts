@@ -1,8 +1,12 @@
 import { Request, Response } from 'express';
 import WebSocket from 'ws';
+import { Search, Href } from '../models';
+import { customAlphabet } from 'nanoid';
 import { Deferred } from '../class';
 
 const ws = new WebSocket('ws://localhost:4001');
+
+const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz', 16);
 
 const searchResults: Deferred[] = [];
 
@@ -12,17 +16,41 @@ ws.on('open', () => {
 
 ws.on('message', (message: string) => {
   const json = JSON.parse(message);
-  const find = searchResults.find((s) => {
+  const index = searchResults.findIndex((s) => {
     return json.search === s.key;
   });
-  if (find) {
-    find.results = json.results;
-    find.resolve(find.results);
-  } else {
-    const deferred = new Deferred(json.search);
-    deferred.results = json.results;
-    searchResults.push(deferred);
-  }
+  Promise.all(
+    json.results.map(async (j: any) => {
+      const h = await Href.findOne({ href: j.href });
+      if (h) {
+        return {
+          artist: j.artist,
+          song: j.song,
+          type: j.type,
+          shortId: h.shortId,
+        };
+      } else {
+        const s = nanoid();
+        new Href({ href: j.href, shortId: s }).save();
+        return {
+          artist: j.artist,
+          song: j.song,
+          type: j.type,
+          shortId: s,
+        };
+      }
+    })
+  ).then((results) => {
+    if (index > -1) {
+      const find = searchResults[index];
+      find.resolve(results);
+      searchResults.splice(index, 1);
+    }
+    new Search({
+      search: json.search,
+      results: results,
+    }).save();
+  });
 });
 
 ws.on('close', () => {
@@ -31,9 +59,7 @@ ws.on('close', () => {
 
 export async function search(req: Request, res: Response): Promise<Response> {
   if (req.body.search.length > 0) {
-    const find = searchResults.find((s) => {
-      return req.body.search === s.key;
-    });
+    const find = await Search.findOne({ search: req.body.search }).exec();
     if (find) {
       console.log('search found:', req.body.search);
       return res.json({
