@@ -20,10 +20,10 @@ ws.on('message', (message: string) => {
     const find = musicResults[index];
     find.resolve(json.result);
     musicResults.splice(index, 1);
-  } 
-  Href.findOne({ href: json.music }).then( (href: any) => {
+  }
+  Href.findOne({ href: json.music }).then((href: any) => {
     new Music({ shortId: href.shortId, song: json.result }).save();
-  })
+  });
 });
 
 ws.on('close', () => {
@@ -38,18 +38,18 @@ export async function music(req: Request, res: Response): Promise<Response> {
       console.log('music found:', req.body.music);
       return res.json({
         music: req.body.music,
-        result: find.song
+        result: find.song,
       });
     } else {
       const href = await Href.findOne({ shortId: req.body.music }).exec();
-      if ( href ) {
+      if (href) {
         console.log('music lookup:', href.href);
         const deferred = new Deferred(href.href);
         musicResults.push(deferred);
         ws.send(JSON.stringify({ music: href.href }));
         return await deferred.promise.then((r: any) => {
           res.json({ music: req.body.music, result: r });
-        });  
+        });
       }
     }
   }
