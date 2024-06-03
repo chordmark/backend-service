@@ -21,7 +21,11 @@ ws.on('message', (message: string) => {
     find.resolve(json.results);
     suggestResults.splice(index, 1);
   }
-  new Suggest({ suggest: json.suggest, results: json.results }).save();
+  try {
+    new Suggest({ suggest: json.suggest, results: json.results }).save();
+  } catch (e) {
+    console.log('mongo suggest save error:', e);
+  }
 });
 
 ws.on('close', () => {
@@ -31,7 +35,7 @@ ws.on('close', () => {
 export async function suggest(req: Request, res: Response): Promise<Response> {
   let lookup = req.body.suggest;
   if (lookup.length > 5) {
-    lookup = lookup.substring(0, 5);
+    lookup = lookup.substring(0, 5).toLowerCase();
   }
   if (lookup.length > 0) {
     const find = await Suggest.findOne({ suggest: lookup }).exec();

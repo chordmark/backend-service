@@ -46,10 +46,14 @@ ws.on('message', (message: string) => {
       find.resolve(results);
       searchResults.splice(index, 1);
     }
-    new Search({
-      search: json.search,
-      results: results,
-    }).save();
+    try {
+      new Search({
+        search: json.search,
+        results: results,
+      }).save();
+    } catch (e) {
+      console.log('mongo search save error:', e);
+    }
   });
 });
 
